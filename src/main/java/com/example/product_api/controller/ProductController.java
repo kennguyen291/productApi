@@ -3,52 +3,43 @@ package com.example.product_api.controller;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
-import com.example.product_api.model.Product;
-import com.example.product_api.repository.ProductRepository;
-
-import jakarta.validation.Valid;
+import com.example.product_api.entity.Product;
+import com.example.product_api.service.ProductService;
 
 @RestController
 @RequestMapping("/api/products")
 public class ProductController {
 
-    private final ProductRepository repo;
+    private final ProductService service;
 
-    public ProductController(ProductRepository repo) {
-        this.repo = repo;
+    public ProductController(ProductService service) {
+        this.service = service;
     }
 
     @GetMapping
-    public List<Product> getAll() {
-        return repo.findAll();
-    }
-
-    @GetMapping("/{id}")
-    public Product getById(@PathVariable Long id) {
-        // minimal version: throws 500 if not found
-        // TODO: improve later with proper 404 handling
-        return repo.findById(id).orElseThrow();
+    public List<Product> list() {
+        return service.getAll();
     }
 
     @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public Product create(@Valid @RequestBody Product product) {
-        return repo.save(product);
+    @PreAuthorize("hasRole('MANAGER')")
+    public ResponseEntity<Product> create(@RequestBody Product p) {
+        return new ResponseEntity<>(service.create(p), HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
-    public Product update(@PathVariable Long id, @Valid @RequestBody Product updated) {
-        Product existing = repo.findById(id).orElseThrow();
-        existing.setName(updated.getName());
-        existing.setPrice(updated.getPrice());
-        return repo.save(existing);
+    @PreAuthorize("hasRole('MANAGER')")
+    public ResponseEntity<Product> update(@PathVariable Long id, @RequestBody Product p) {
+        return ResponseEntity.ok(service.fullUpdate(id, p));
     }
 
-    @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable Long id) {
-        repo.deleteById(id);
+    @PatchMapping("/{id}/restock")
+    @PreAuthorize("hasRole('STAFF')")
+    public ResponseEntity<Void> toggleRestock(@PathVariable Long id, @RequestBody boolean status) {
+        service.updateRestockStatus(id, status);
+        return ResponseEntity.noContent().build();
     }
 }
